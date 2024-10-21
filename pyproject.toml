@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "macro-recorder"
+version = "0.1.0"
+description = ""
+authors = ["craftsangjae <craftsangjae@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+pyaudio = "^0.2.14"
+opencv-python = "^4.10.0.84"
+pyautogui = "^0.9.54"
+numpy = "^2.1.2"
+pynput = "^1.7.7"
+pyscreeze = "^1.0.1"
+pillow = "^11.0.0"
+pyscreenrec = "^0.5"
+mss = "^9.0.2"
+pvrecorder = "^1.2.3"
+moviepy = "^1.0.3"
+ujson = "^5.10.0"
+kivy = "^2.3.0"
+
+[tool.poetry.scripts]
+macro-recorder = "macro_recorder.__main__:main"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
