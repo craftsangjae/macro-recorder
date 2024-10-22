@@ -6,6 +6,7 @@
 # website: http://jupyter.org/
 
 scripts/
+outputs/
 
 .ipynb_checkpoints
 */.ipynb_checkpoints/*

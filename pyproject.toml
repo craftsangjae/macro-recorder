@@ -10,6 +10,7 @@ python = ">=3.11,<4.0.0"
 pynput = "^1.7.7"
 screeninfo = "^0.8.1"
 ffmpeg = "^1.4"
+pyqt5 = "^5.15.11"
 
 [tool.poetry.scripts]
 macro-recorder = "macro_recorder.__main__:main"

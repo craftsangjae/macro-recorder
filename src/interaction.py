@@ -4,7 +4,7 @@ import json
 from typing import Tuple
 
 from pynput.keyboard import KeyCode
-
+json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)
 
 class MouseMonitor(multiprocessing.Process):
     def __init__(self, output_path: str):
@@ -17,13 +17,13 @@ class MouseMonitor(multiprocessing.Process):
         s_w, s_h = get_screen_size()
 
         def write_log(x: float, y: float, action: str):
-            row = [s_time - time.time(), x / s_w, y / s_h, action]
+            row = [time.time() - s_time, x / s_w, y / s_h, action]
             with open(self.output_path, encoding="utf-8", mode='a') as f:
-                json.encoder.FLOAT_REPR = lambda o: lambda f: ("%.4f" % f)
                 f.write(json.dumps(row, ensure_ascii=False) + '\n')
 
         def on_move(x, y):
-            write_log(x, y, 'move')
+            # write_log(x, y, 'move')
+            return # Skip mouse move events
 
         def on_click(x, y, button, pressed):
             if pressed:
@@ -32,7 +32,8 @@ class MouseMonitor(multiprocessing.Process):
                 write_log(x, y, f'{button.name} release')
 
         def on_scroll(x, y, dx, dy):
-            write_log(x, y, "scroll")
+            # write_log(x, y, "scroll")
+            return # Skip mouse scroll events
 
         with mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll) as listener:
             print('Mouse monitor started.')
@@ -50,9 +51,9 @@ class KeyboardMonitor(multiprocessing.Process):
 
         def write_log(action: str, key: KeyCode):
             try:
-                row = [s_time - time.time(), action, key.char]
+                row = [time.time() - s_time, action, key.char]
             except AttributeError:
-                row = [s_time - time.time(), action, str(key)]
+                row = [time.time() - s_time, action, str(key)]
 
             with open(self.output_path, encoding="utf-8", mode='a') as f:
                 f.write(json.dumps(row, ensure_ascii=False) + '\n')
