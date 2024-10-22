@@ -76,7 +76,7 @@ def record_screen(output_path: str) -> subprocess.Popen:
     )
     return subprocess.Popen(
         ffmpeg_command,
-        stdout=subprocess.DEVNULL,
+        # stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
+        # stdin=subprocess.DEVNULL,
     )
