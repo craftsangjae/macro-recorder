@@ -1,59 +1,82 @@
-import os.path
-import threading
-import time
-import numpy as np
-from PIL import Image
-import cv2
-
-FPS = 20
-cursor = Image.open(os.path.join(os.path.dirname(__file__), "resource", "cursor.png"))
+import subprocess
+import re
+from typing import Tuple, List
+import ffmpeg
 
 
-def capture_screenshot() -> np.ndarray:
-    """ 현재 스크린샷을 찍어서 저장합니다. """
-    import mss
-    import numpy as np
-    with mss.mss() as sct:
-        monitor = sct.monitors[0]
-        image = sct.grab(monitor)
-        return np.array(image)
+def pick_audio_device():
+    """ 오디오 디바이스를 선택합니다. """
+    device_list = get_audio_devices()
+    return select_best_audio_device(device_list)
 
 
-def draw_cursor(image: np.ndarray) -> np.ndarray:
-    """ 포인터를 그립니다. """
-    import pyautogui
-    # 마우스 포인터 위치 가져오기
-    mouse_x, mouse_y = pyautogui.position()
-    size = pyautogui.size()
-    h, w = image.shape[:2]
-    cursor_size = cursor.size
-    position = (int(mouse_x * w / size.width - cursor_size[0]//3), int(mouse_y * h / size.height - cursor_size[1]//4))
+def get_audio_devices() -> List[Tuple[str, str]]:
+    """ 모든 오디오 장치 정보를 가져옵니다. """
+    ffmpeg_command = ['ffmpeg', '-f', 'avfoundation', '-list_devices', 'true', '-i', '""']
+    process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    error = error.decode('utf-8')
+    return re.findall(r'\[(\d+)\] (.*)', error.split('audio devices:')[-1])
 
-    # 스크린샷에 마우스 포인터 그리기
-    img_pil = Image.fromarray(image)
-    img_pil.paste(cursor, position, cursor)
-    return np.array(img_pil)
 
-def record_screen(save_path: str, stop_signal: threading.Event):
-    """ Record screen to video file. """
-    global FPS
-    frame_time = 1 / FPS
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+def select_best_audio_device(devices: List[Tuple[str, str]]) -> str:
+    priority_keywords = ['airpods', 'macbook', 'microphone']
+    for keyword in priority_keywords:
+        keyword = keyword.lower()
+        for device_id, device_name in devices:
+            if keyword in device_name.lower():
+                return device_id
 
-    out = None
-    next_frame_time = time.time()
-    while not stop_signal.is_set():
-        image = capture_screenshot()
-        frame = draw_cursor(image)
+    if devices:
+        return devices[0][0]
 
-        if out is None:
-            screen_size = frame.shape[:2][::-1]
-            out = cv2.VideoWriter(save_path, fourcc, FPS, screen_size)
 
-        out.write(frame[..., :3])
+def pick_capture_screen():
+    device_list = get_video_devices()
+    return select_capture_screen(device_list)
 
-        next_frame_time += frame_time
-        if sleep_time := max(0., next_frame_time - time.time()):
-            time.sleep(sleep_time)
-    out.release()
-    return save_path
+
+def get_video_devices() -> List[Tuple[str, str]]:
+    """ 모든 비디오 장치 정보를 가져옵니다.
+    """
+    ffmpeg_command = ['ffmpeg', '-f', 'avfoundation', '-list_devices', 'true', '-i', '""']
+    process = subprocess.Popen(ffmpeg_command, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    output, error = process.communicate()
+    error = error.decode('utf-8')
+    return re.findall(r'\[(\d+)\] (.*)', error.split('audio devices:')[0].split('video devices:')[-1])
+
+
+def select_capture_screen(devices: List[Tuple[str, str]]):
+    priority_keywords = ['Capture screen']
+    for keyword in priority_keywords:
+        keyword = keyword.lower()
+        for device_id, device_name in devices:
+            if keyword in device_name.lower():
+                return device_id
+    if devices:
+        return devices[0][0]
+
+
+def record_screen(output_path: str) -> subprocess.Popen:
+    """ 화면을 녹화합니다 """
+    video_device_id = pick_capture_screen()
+    audio_device_id = pick_audio_device()
+
+    ffmpeg_command = (
+        ffmpeg
+        .input(f'{video_device_id}:{audio_device_id}',
+               format='avfoundation',
+               capture_cursor=1,
+               capture_mouse_clicks=1)
+        .output(output_path,
+                vcodec='libx264',
+                acodec='aac')
+        .overwrite_output()
+        .compile()
+    )
+    return subprocess.Popen(
+        ffmpeg_command,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+    )

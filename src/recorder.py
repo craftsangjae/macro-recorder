@@ -1,53 +1,35 @@
-import threading
+import multiprocessing
+import subprocess
 import os
 from typing import Dict
 
-from src.audio import record_audio
-from src.interaction import record_mouse_events, record_keyboard_events
 from src.screen import record_screen
+from src.interaction import MouseMonitor, KeyboardMonitor
 
 
 class Recorder:
-    threads: Dict[str, threading.Thread]
+    _input_processes: Dict[str, multiprocessing.Process]
+    _screen_process: subprocess.Popen
 
     def __init__(self, output_dir: str):
         os.makedirs(output_dir, exist_ok=True)
         self.output_dir = output_dir
-        self.stop_event = threading.Event()
-
-        self.video_path = os.path.join(output_dir, "screen.avi")
-        self.audio_path = os.path.join(output_dir, "audio.wav")
         self.output_path = os.path.join(output_dir, "output.mp4")
-
-        mouse_log_path = os.path.join(output_dir, "mouse.json")
-        keyboard_path = os.path.join(output_dir, "keyboard.json")
-
-        self.threads = {
-            'screen': threading.Thread(target=record_screen, args=(self.video_path, self.stop_event,)),
-            'audio': threading.Thread(target=record_audio, args=(self.audio_path, self.stop_event,)),
-            'mouse': threading.Thread(target=record_mouse_events, args=(mouse_log_path, self.stop_event,)),
-            'keyboard': threading.Thread(target=record_keyboard_events, args=(keyboard_path, self.stop_event,))
+        self._input_processes = {
+            'mouse': MouseMonitor(os.path.join(output_dir, "mouse.jsonl")),
+            'keyboard': KeyboardMonitor(os.path.join(output_dir, "keyboard.jsonl"))
         }
 
     def start(self):
-        for name, thread in self.threads.items():
-            thread.start()
+        self._screen_process = record_screen(self.output_path)
+        for name, process in self._input_processes.items():
+            process.start()
 
     def stop(self):
-        self.stop_event.set()
-        for name, thread in self.threads.items():
-            thread.join()
+        for name, process in self._input_processes.items():
+            process.terminate()
+            process.join(10)
+        self._screen_process.terminate()
+        self._screen_process.wait(10)
 
-        merge_video(self.output_path, self.video_path, self.audio_path)
-        # os.remove(self.video_path)
-        # os.remove(self.audio_path)
-
-
-def merge_video(output_path:str, video_path:str, audio_path:str):
-    from moviepy.editor import VideoFileClip, AudioFileClip
-    return (
-        VideoFileClip(video_path)
-        .set_audio(AudioFileClip(audio_path))
-        .write_videofile(output_path, codec="libx264", audio_codec="aac")
-    )
 
